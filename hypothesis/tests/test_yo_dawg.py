@@ -8,6 +8,7 @@ from hypothesis.searchstrategy import (
 from hypothesis.verifier import Verifier
 from hypothesis.testdecorators import given
 from collections import namedtuple
+from itertools import islice
 
 Descriptor = namedtuple("Descriptor", "descriptor")
 
@@ -56,11 +57,11 @@ class StrategyAndValueStrategy(SearchStrategy):
             yield StrategyAndValue(x.strategy, yv)
 
 
-@given(StrategyAndValue, verifier=Verifier(max_size=100))
+@given(StrategyAndValue)
 def test_simplify_does_not_increase_complexity(sav):
     strat = sav.strategy
     x = sav.value
-    for y in strat.simplify(x):
+    for y in islice(strat.simplify(x),0,10):
         assert strat.complexity(y) <= strat.complexity(x)
     
 
