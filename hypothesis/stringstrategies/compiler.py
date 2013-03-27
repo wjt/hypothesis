@@ -3,7 +3,7 @@ from parsley import makeGrammar
 from collections import namedtuple
 from inspect import currentframe
 from pprint import PrettyPrinter
-
+import random
 
 letters = ''.join(map(chr, range(ord('a'), ord('a') + 26)))
 numbers = ''.join(map(str,range(0,10))) 
@@ -21,6 +21,10 @@ class IDGenerator(object):
         return x in self.data
 
 class Expression(object):
+    @classmethod
+    def parse(cls, expression):
+        return RegExp(expression).exps()
+
     def valid_starts(self):
         if hasattr(self, '_valid_starts'):
             return self._valid_starts
@@ -43,6 +47,24 @@ class Expression(object):
     def __hash__(self):
         return hash(self.cexp())
 
+    def random(self, l):
+        cs = []
+        i = 0
+        dfa = self.dfa()
+
+        while True:
+            can_end, transitions = dfa[i]
+
+            if (not transitions or len(cs) >= l) and can_end:
+                return ''.join(cs)
+    
+            if not transitions:
+                raise ValueError("Help! I've run out of transitions in state %s. That shouldn't happen" % i)
+
+            c, i = random.choice(transitions.items())
+            cs.append(c)
+
+
     def cexp(self):
         if not hasattr(self, '_cexp'):
             self._cexp = self.exp()
@@ -62,6 +84,11 @@ class Expression(object):
     def derivatives(self):
         for c in self.valid_starts():
             yield c, self.differentiate(c)
+
+    def dfa(self):
+        if not hasattr(self, '_dfa'):
+            self._dfa = self.compile()
+        return self._dfa
 
     def compile(self):
         pending = [self]
@@ -86,12 +113,8 @@ class Expression(object):
         for source, transitions in states.items():
             source_id = idg.gen(source)
             s = {}
-            if source.matches_empty():
-                s["end"] = "ok"
-
-            simple_states[source_id] = s
+            simple_states[source_id] = (source.matches_empty(), s)
             for c, target in transitions.items():
-                print source, c, target
                 s[c] = idg.gen(target)
 
         return [simple_states[i] for i in xrange(0, len(simple_states))]
