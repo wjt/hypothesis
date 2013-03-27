@@ -1,6 +1,7 @@
 from hypothesis.specmapper import SpecificationMapper
 from hypothesis.tracker import Tracker
 from hypothesis.flags import Flags
+from hypothesis.expressioncompiler import Expression
 
 from inspect import isclass
 from collections import namedtuple
@@ -578,3 +579,18 @@ just = Just
 class JustStrategy(SearchStrategy):
     def produce(self, size, flags):
         return self.descriptor.value
+
+
+@strategy_for_instances(str)
+class MatchingRegexpStrategy(SearchStrategy):
+    def __init__(   self,
+                    strategies,
+                    descriptor,
+                    **kwargs):
+        SearchStrategy.__init__(self, strategies, descriptor,**kwargs)
+        self.int_strategy = strategies.strategy(int)
+        self.dfa = Expression.parse(descriptor)
+
+    def produce(self, size, flags):
+        length = self.int_strategy.produce(size, Flags())
+        return self.dfa.random(length) 
