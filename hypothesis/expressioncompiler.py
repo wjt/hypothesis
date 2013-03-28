@@ -20,6 +20,8 @@ class IDGenerator(object):
     def seen(self, x):
         return x in self.data
 
+State = namedtuple("State", ("terminal", "transitions"))
+
 class Expression(object):
     @classmethod
     def parse(cls, expression):
@@ -113,7 +115,7 @@ class Expression(object):
         for source, transitions in states.items():
             source_id = idg.gen(source)
             s = {}
-            simple_states[source_id] = (source.matches_empty(), s)
+            simple_states[source_id] = State(source.matches_empty(), s)
             for c, target in transitions.items():
                 s[c] = idg.gen(target)
 
