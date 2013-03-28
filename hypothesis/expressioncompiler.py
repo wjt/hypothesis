@@ -3,6 +3,7 @@ from parsley import makeGrammar
 from collections import namedtuple
 from inspect import currentframe
 from pprint import PrettyPrinter
+from functools import wraps
 import random
 
 letters = ''.join(map(chr, range(ord('a'), ord('a') + 26)))
@@ -273,3 +274,30 @@ regexpGrammar = """
     """ % alphanumerics
 
 RegExp = makeGrammar(regexpGrammar, currentframe().f_locals)
+
+class DFAInfo():
+    def __init__(self, dfa):
+        self.dfa = dfa
+        self.string_counts_from_states = [{} for _ in xrange(len(dfa))]
+
+    def strings_from_state(self, state_index, length):
+        if length < 0:
+            return ValueError("Can't have a negative length: %s" % length)
+        table = self.string_counts_from_states[state_index]
+        if length in table:
+            return table[length]
+        state = self.dfa[state_index]
+        if length == 0:
+            result = 1 if state.terminal else 0
+        else:
+            result = sum((
+                self.strings_from_state(si, length - 1)
+                for c, si in state.transitions.items()))
+        table[length] = result
+        return result 
+
+    def strings_at_length(self):
+        i = 0
+        while True:
+            yield i, self.strings_from_state(0, i)
+            i += 1
