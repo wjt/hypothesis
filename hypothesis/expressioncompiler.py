@@ -6,11 +6,6 @@ from pprint import PrettyPrinter
 from functools import wraps
 import random
 
-letters = ''.join(map(chr, range(ord('a'), ord('a') + 26)))
-numbers = ''.join(map(str,range(0,10))) 
-extra_chars = ' '
-alphanumerics = numbers + letters + letters.upper()  + extra_chars
-
 class IDGenerator(object):
     def __init__(self):
         self.data = {}
@@ -67,6 +62,51 @@ class Expression(object):
             c, i = random.choice(transitions.items())
             cs.append(c)
 
+    def strings_from_state(self, state_index, length):
+        if length < 0:
+            return ValueError("Can't have a negative length: %s" % length)
+        table = self.string_counts_from_states[state_index]
+        if length in table:
+            return table[length]
+        state = self.dfa()[state_index]
+        if length == 0:
+            result = 1 if state.terminal else 0
+        else:
+            result = sum((
+                self.strings_from_state(si, length - 1)
+                for c, si in state.transitions.items()))
+        table[length] = result
+        return result 
+
+    def is_language_infinite(self):
+        if not hasattr(self, '_is_language_infinite'):
+            stack = []
+            def seek_cycle_from(i):
+                if i in stack: return True
+                stack.append(i)
+                for j in self.dfa()[i].transitions.values():
+                    if seek_cycle_from(j): return True
+                stack.pop()
+                return False
+            self._is_language_infinite = seek_cycle_from(0)
+
+        return self._is_language_infinite
+
+    def language_size(self):
+        if not hasattr(self, '_language_size'):
+            def lsfrom(i):
+                state = self.dfa()[i]
+                size = sum(lsfrom(j) for j in state.transitions.values())
+                if state.terminal: size += 1 
+                return size
+            self._language_size  = lsfrom(0)
+        return self._language_size
+
+    def strings_at_length(self):
+        i = 0
+        while True:
+            yield i, self.strings_from_state(0, i)
+            i += 1
 
     def cexp(self):
         if not hasattr(self, '_cexp'):
@@ -150,7 +190,7 @@ class Cat(Expression, namedtuple("Cat", "children")):
 
 class Empty(Expression):
     def exp(self):
-        return '\\e'
+        return ''
 
     def add_valid_starts(self, it):
         pass
@@ -211,6 +251,9 @@ class Plus(Expression, namedtuple("Plus", "child")):
         self.child.add_valid_starts(it)
 
 class Alt(Expression, namedtuple("Alt", ("left", "right"))):
+    def matches_empty(self):
+        return self.left.matches_empty() or self.right.matches_empty()
+
     def exp(self):
         return self.left.qexp() + "|" + self.right.qexp()
 
@@ -263,41 +306,22 @@ def alt(xs, alt):
     if isinstance(alt, Nothing): return xs
     return Alt(xs, alt)
 
+
+letters = ''.join(map(chr, range(ord('a'), ord('a') + 26)))
+numbers = ''.join(map(str,range(0,10))) 
+extra_chars = ' '
+alphanumerics = numbers + letters + letters.upper()  + extra_chars
+specialchars = '|+*?\\'
+
 regexpGrammar = """
-    regularchars = anything:x ?(x in '%s') -> x
-    token = regularchars+:ds -> Token(''.join(ds))
+    regularchars = anything:x ?(x in alphanumerics) -> x
+    escapedspecialchars = '\\\\' anything:x ?(x in specialchars) -> x
+    token = (regularchars | escapedspecialchars)+:ds -> Token(''.join(ds))
     alt = '|' exps:x -> x
     bracketed = '(' exps:xs ')' -> xs
     suffix = ('*'|'+'|'?'):s -> s
     exp = (bracketed | token):x suffix?:s -> maybe_suffix(x, s)
-    exps = exp+:x alt?:al suffix?:s -> maybe_suffix(exprs(x,al), s)
-    """ % alphanumerics
+    exps = exp*:x alt?:al suffix?:s -> maybe_suffix(exprs(x,al), s)
+    """
 
 RegExp = makeGrammar(regexpGrammar, currentframe().f_locals)
-
-class DFAInfo():
-    def __init__(self, dfa):
-        self.dfa = dfa
-        self.string_counts_from_states = [{} for _ in xrange(len(dfa))]
-
-    def strings_from_state(self, state_index, length):
-        if length < 0:
-            return ValueError("Can't have a negative length: %s" % length)
-        table = self.string_counts_from_states[state_index]
-        if length in table:
-            return table[length]
-        state = self.dfa[state_index]
-        if length == 0:
-            result = 1 if state.terminal else 0
-        else:
-            result = sum((
-                self.strings_from_state(si, length - 1)
-                for c, si in state.transitions.items()))
-        table[length] = result
-        return result 
-
-    def strings_at_length(self):
-        i = 0
-        while True:
-            yield i, self.strings_from_state(0, i)
-            i += 1

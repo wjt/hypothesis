@@ -1,4 +1,4 @@
-from hypothesis.expressioncompiler import Expression
+from hypothesis.expressioncompiler import Expression, Token
 
 def test_alternation_matches_empty_if_either_half_does():
     for s in ["()|foo", "()|()", "foo|()"]:
@@ -17,3 +17,7 @@ def test_simple_strings_have_singleton_languages():
 def test_all_alternatives_appear_in_language():
     assert Expression.parse("foo|bar|baz").language_size() == 3
     assert Expression.parse("foo|foo|bar|baz").language_size() == 3
+
+def test_can_include_escaped_characters():
+    assert Expression.parse("foo\\?") == Token("foo?")
+    assert Expression.parse("\\\\\\?") == Token("\\?")
