@@ -185,12 +185,14 @@ class IntStrategy(SearchStrategy):
 
     def produce(self, size, flags):
         can_be_negative = flags.enabled("allow_negative_ints") and size > 1
-      
         if size <= 1e-8:
             return 0
      
         if size >= 32:
-            return arbitrary_int()
+            n = arbitrary_int()
+            if not can_be_negative:
+                n = abs(n) 
+            return n
 
         if can_be_negative:
             size -= 1
@@ -589,8 +591,23 @@ class MatchingRegexpStrategy(SearchStrategy):
                     **kwargs):
         SearchStrategy.__init__(self, strategies, descriptor,**kwargs)
         self.int_strategy = strategies.strategy(int)
-        self.dfa = Expression.parse(descriptor)
+        self.expression = Expression.parse(descriptor)
 
     def produce(self, size, flags):
-        length = self.int_strategy.produce(size, Flags())
-        return self.dfa.random(length) 
+        if self.expression.is_language_infinite():
+            n = self.int_strategy.produce(size, Flags())
+        else:
+            maxn = self.expression.language_size() - 1
+            if log2(maxn) > size:
+                maxn = int(2 ** size)
+            n = random.randint(0, maxn)
+        return self.expression.nth_string(n)
+
+    def complexity(self, x):
+        return len(x)
+
+    def could_have_produced(self, x):
+        return isinstance(x, str) and self.expression.matches(x)
+
+    def simplify(self, x):
+        return self.expression.matching_substrings(x)

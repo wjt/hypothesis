@@ -2,7 +2,6 @@ import sys
 from parsley import makeGrammar
 from collections import namedtuple
 from inspect import currentframe
-from pprint import PrettyPrinter
 from functools import wraps
 import random
 
@@ -45,24 +44,62 @@ class Expression(object):
     def __hash__(self):
         return hash(self.cexp())
 
-    def random(self, l):
-        cs = []
+    def matches(self, string):
+        s = self.dfa()[0]
         i = 0
-        dfa = self.dfa()
+        while i < len(string):
+            try:
+                s = self.dfa()[s.transitions[string[i]]]
+                i += 1
+            except KeyError:
+                return False
+        return s.terminal
 
-        while True:
-            can_end, transitions = dfa[i]
+    def matching_substrings(self, string):
+        s = self.dfa()[0]
+        i = 0
+        while i < len(string):
+            try:
+                s = self.dfa()[s.transitions[string[i]]]
+                i += 1
+                if s.terminal:
+                    yield string[0:i]
+            except KeyError:
+                return
 
-            if (not transitions or len(cs) >= l) and can_end:
-                return ''.join(cs)
-    
-            if not transitions:
-                raise ValueError("Help! I've run out of transitions in state %s. That shouldn't happen" % i)
 
-            c, i = random.choice(transitions.items())
-            cs.append(c)
+    def nth_string(self, n):
+        if n < 0:
+            raise IndexError("n cannot be negative: n=%s" % n)
+        if not self.is_language_infinite() and n >= self.language_size():
+            raise IndexError("n cannot be > language size %s: n=%s" % (self.language_size(), n))
+        
+        for l, m in self.strings_at_length():
+            if m > n: break
+            n -= m
+
+        cs = []
+
+        state_index = 0
+
+        while len(cs) < l:
+            state = self.dfa()[state_index]
+
+            for c, ns in sorted(state.transitions.items(),key = lambda x:x[0]):
+                in_bucket = self.strings_from_state(ns, l - len(cs) - 1)
+                if in_bucket <= n:
+                    n -= in_bucket
+                else:
+                    state_index = ns
+                    cs.append(c)
+                    break
+            
+        return ''.join(cs)
+        
 
     def strings_from_state(self, state_index, length):
+        if not hasattr(self, 'string_counts_from_states'):
+            self.string_counts_from_states = [{} for _ in xrange(len(self.dfa()))]
         if length < 0:
             return ValueError("Can't have a negative length: %s" % length)
         table = self.string_counts_from_states[state_index]
@@ -175,6 +212,34 @@ class Token(Expression, namedtuple("Token", ("token"))):
             return Token(t)
         else:
             return Empty()
+
+class CharClass(Expression):
+    def __init__(self, chars):
+        self.chars = set()
+
+        i = 0
+        while i < len(chars):
+            j = i + 1
+            if j < len(chars) and chars[j][0] == '-':
+                for c in xrange(ord(chars[i]), ord(chars[j][1])+1):
+                    self.chars.add(chr(c))
+                i += 2
+            else:
+                self.chars.add(chars[i])
+                i += 1
+
+    def add_valid_starts(self, it):
+        for t in self.chars:
+            it.add(t)
+
+    def exp(self):
+        return "[%s]" % self.chars
+
+    def _differentiate(self, c):
+        if c in self.chars:
+            return Empty()
+        else:
+            return Nothing()
 
 class Cat(Expression, namedtuple("Cat", "children")):
     def exp(self):
@@ -314,13 +379,16 @@ alphanumerics = numbers + letters + letters.upper()  + extra_chars
 specialchars = '|+*?\\'
 
 regexpGrammar = """
-    regularchars = anything:x ?(x in alphanumerics) -> x
-    escapedspecialchars = '\\\\' anything:x ?(x in specialchars) -> x
-    token = (regularchars | escapedspecialchars)+:ds -> Token(''.join(ds))
+    regularchar = anything:x ?(x in alphanumerics) -> x
+    escapedspecialchar = '\\\\' anything:x ?(x in specialchars) -> x
+    char = regularchar | escapedspecialchar
+    token = (char)+:ds -> Token(''.join(ds))
+    cr = '-' char:y -> '-' + y
+    charclass = '[' char:x (char|cr)*:xs ']' -> CharClass([x] + xs)
     alt = '|' exps:x -> x
     bracketed = '(' exps:xs ')' -> xs
     suffix = ('*'|'+'|'?'):s -> s
-    exp = (bracketed | token):x suffix?:s -> maybe_suffix(x, s)
+    exp = (bracketed | token | charclass):x suffix?:s -> maybe_suffix(x, s)
     exps = exp*:x alt?:al suffix?:s -> maybe_suffix(exprs(x,al), s)
     """
 

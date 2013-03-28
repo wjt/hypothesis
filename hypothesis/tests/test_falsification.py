@@ -322,3 +322,6 @@ def test_can_falsify_complex_numbers():
 def test_raises_on_unsatisfiable_assumption():
     with pytest.raises(Unsatisfiable):
         falsify(lambda x: assume(False), int)
+
+def test_can_falsify_based_on_regexp_generators():
+    falsify(lambda x: x == reversed(x), "oo|bar")
