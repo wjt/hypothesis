@@ -273,12 +273,3 @@ regexpGrammar = """
     """ % alphanumerics
 
 RegExp = makeGrammar(regexpGrammar, currentframe().f_locals)
-
-if __name__ == '__main__':
-    while True:
-        line = sys.stdin.readline()
-        if not line: break
-        e = RegExp(line.strip()).exps()
-        print e
-        print e.compile()
-
