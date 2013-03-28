@@ -207,11 +207,10 @@ def test_stops_loop_pretty_quickly():
         falsify(lambda x: x == x, int)
 
 def test_good_errors_on_bad_values():
-    some_string = "I am the very model of a modern major general"
     with pytest.raises(MissingSpecification) as e:
-        falsify(lambda x: False, some_string)
+        falsify(lambda x: False, 42)
 
-    assert some_string in e.value.args[0]
+    assert "42" in e.value.args[0]
 
 def test_can_falsify_bools():
     assert falsify(lambda x: x, bool)[0] == False
