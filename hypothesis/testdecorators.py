@@ -1,11 +1,16 @@
 from hypothesis.verifier import Verifier, Unfalsifiable, UnsatisfiedAssumption
 
+global shared_verifier_for_tests
+shared_verifier_for_tests = None
+
 def given(*generator_arguments,**kwargs):
     if "verifier" in kwargs:
         verifier = kwargs["verifier"]
         del kwargs["verifier"]
     else:
-        verifier = Verifier()
+        global shared_verifier_for_tests
+        shared_verifier_for_tests = shared_verifier_for_tests or Verifier()
+        verifier = shared_verifier_for_tests
 
     def run_test_with_generator(test):
         def wrapped_test(*arguments):
