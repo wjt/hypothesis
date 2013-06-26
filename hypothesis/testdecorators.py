@@ -1,11 +1,13 @@
 from hypothesis.verifier import Verifier, Unfalsifiable, UnsatisfiedAssumption
+import logging
+
 
 def given(*generator_arguments,**kwargs):
     if "verifier" in kwargs:
         verifier = kwargs["verifier"]
         del kwargs["verifier"]
     else:
-        verifier = Verifier()
+        verifier = None
 
     def run_test_with_generator(test):
         def wrapped_test(*arguments):
@@ -22,7 +24,10 @@ def given(*generator_arguments,**kwargs):
                     return False
 
             try:
-                falsifying_example = verifier.falsify(to_falsify, (generator_arguments, kwargs))[0]
+                _verifier = verifier or Verifier(
+                    logger=logging.getLogger(test.__module__)
+                )
+                falsifying_example = _verifier.falsify(to_falsify, (generator_arguments, kwargs))[0]
             except Unfalsifiable:
                 return
          
