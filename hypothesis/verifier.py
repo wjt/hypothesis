@@ -1,6 +1,7 @@
 from hypothesis.searchstrategy import SearchStrategies
 from hypothesis.flags import Flags
 from random import random
+from hypothesis.collector import Collector
 
 
 def assume(condition):
@@ -17,7 +18,8 @@ class Verifier(object):
                  runs_to_explore_flags=3,
                  min_satisfying_examples=5,
                  max_size=512,
-                 max_failed_runs=10):
+                 max_failed_runs=10,
+                 collector=None):
         self.search_strategies = search_strategies or SearchStrategies()
         self.min_satisfying_examples = min_satisfying_examples
         self.starting_size = starting_size
@@ -26,24 +28,26 @@ class Verifier(object):
         self.max_size = max_size
         self.max_failed_runs = max_failed_runs
         self.runs_to_explore_flags = runs_to_explore_flags
+        self.collector = collector or Collector()
 
     def falsify(self, hypothesis, *argument_types):
+        self.collector.reset()
         search_strategy = (self.search_strategies
                                .specification_for(argument_types))
         flags = None
-        # TODO: This is a sign that I should be pulling some of this out into
-        # an object.
-        examples_found = [0]
 
         def falsifies(args):
+            failed_validation = False
             try:
-                examples_found[0] += 1
                 return not hypothesis(*args)
             except AssertionError:
                 return True
             except UnsatisfiedAssumption:
-                examples_found[0] -= 1
+                failed_validation = True
                 return False
+            finally:
+                if not failed_validation:
+                    self.collector.example_found(args)
 
         temperature = self.starting_size
         falsifying_examples = []
@@ -81,7 +85,7 @@ class Verifier(object):
             temperature += self.warming_rate
 
         if not falsifying_examples:
-            ef = examples_found[0]
+            ef = self.collector.examples_found
             if ef < self.min_satisfying_examples:
                 raise Unsatisfiable(hypothesis, ef)
             else:
