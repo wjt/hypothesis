@@ -19,6 +19,15 @@ class Collector(object):
     def example_simplified(self, value, simplified_value):
         self.examples_simplified += 1
 
+    def insufficient_examples(self, hypothesis):
+        pass
+
+    def unable_to_falsify(self, hypothesis):
+        pass
+
+    def hypothesis_falsified(self, hypothesis, example):
+        pass
+
 
 class LoggingCollector(Collector):
     def __init__(self, logger=logging.getLogger('hypothesis')):
@@ -40,3 +49,32 @@ class LoggingCollector(Collector):
         self.logger.debug("Simplified example %s -> %s" % (
             repr(value),
             repr(simplified_value)))
+
+    def insufficient_examples(self, hypothesis):
+        self.logger.info(
+            "Unable to find sufficient examples to falsify"
+            " hypothesis %s. %d accepted. %d rejected" % (
+                hypothesis,
+                self.examples_found,
+                self.examples_rejected
+            ))
+
+    def unable_to_falsify(self, hypothesis):
+        self.logger.info(
+            "Unable to falsify hypothesis %s"
+            "after %d examples (%d rejected)" % (
+                hypothesis,
+                self.examples_found,
+                self.examples_rejected
+            ))
+
+    def hypothesis_falsified(self, hypothesis, example):
+        self.logger.info(
+            "Falsified hypothesis %s with example %s"
+            "after %d examples (%d rejected)" % (
+                hypothesis,
+                repr(example),
+                self.examples_found,
+                self.examples_rejected
+            ))
+

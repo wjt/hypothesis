@@ -5,6 +5,10 @@ from hypothesis.collector import Collector, LoggingCollector
 import logging
 import inspect
 
+logger = logging.getLogger('hypothesis')
+logger.addHandler(logging.NullHandler())
+logger.propagate = False
+
 
 def assume(condition):
     if not condition:
@@ -22,7 +26,7 @@ class Verifier(object):
                  max_size=512,
                  max_failed_runs=10,
                  collector=None,
-                 logger=None,
+                 logger=logger,
                  ):
         self.search_strategies = search_strategies or SearchStrategies()
         self.min_satisfying_examples = min_satisfying_examples
@@ -98,25 +102,11 @@ class Verifier(object):
         if not falsifying_examples:
             ef = self.collector.examples_found
             if ef < self.min_satisfying_examples:
-                if self.logger:
-                    self.logger.error(
-                        "Unable to falsify hypothesis %s"
-                        "after %d examples (%d rejected)" % (
-                            display_hypothesis,
-                            self.collector.examples_found,
-                            self.collector.examples_rejected
-                        ))
+                self.collector.insufficient_examples(display_hypothesis)
 
                 raise Unsatisfiable(hypothesis, ef)
             else:
-                if self.logger:
-                    logging.error(
-                        "Unable to find sufficient examples to falsify hypothesis"
-                        "%s. %d accepted. %d rejected" % (
-                            display_hypothesis,
-                            self.collector.examples_found,
-                            self.collector.examples_rejected
-                        ))
+                self.collector.unable_to_falsify(display_hypothesis)
 
                 raise Unfalsifiable(hypothesis)
 
@@ -129,7 +119,11 @@ class Verifier(object):
 
         best_example = min(falsifying_examples, key=search_strategy.complexity)
 
-        return search_strategy.simplify_such_that(best_example, falsifies, collector=self.collector)
+        best_example = search_strategy.simplify_such_that(best_example, falsifies, collector=self.collector)
+
+        self.collector.hypothesis_falsified(display_hypothesis, best_example)
+
+        return best_example
 
 
 def falsify(*args, **kwargs):
