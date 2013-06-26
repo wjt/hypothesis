@@ -43,6 +43,7 @@ class Verifier(object):
             except AssertionError:
                 return True
             except UnsatisfiedAssumption:
+                self.collector.example_rejected(args)
                 failed_validation = True
                 return False
             finally:
@@ -100,7 +101,7 @@ class Verifier(object):
 
         best_example = min(falsifying_examples, key=search_strategy.complexity)
 
-        return search_strategy.simplify_such_that(best_example, falsifies)
+        return search_strategy.simplify_such_that(best_example, falsifies, collector=self.collector)
 
 
 def falsify(*args, **kwargs):

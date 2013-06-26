@@ -122,7 +122,7 @@ class SearchStrategy(object):
     def simplify(self,value):
         return iter(())
 
-    def simplify_such_that(self, t, f):
+    def simplify_such_that(self, t, f, collector=None):
         tracker = Tracker()
 
         while True:
@@ -130,6 +130,8 @@ class SearchStrategy(object):
                 if tracker.track(s) > 1: 
                     continue
                 if f(s):
+                    if collector:
+                        collector.example_simplified(t, s)
                     t = s
                     break
             else:

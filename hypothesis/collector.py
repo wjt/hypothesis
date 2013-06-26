@@ -11,5 +11,5 @@ class Collector(object):
     def example_rejected(self, value):
         pass
 
-    def example_reduced(self, value, minimized_value):
+    def example_simplified(self, value, simplified_value):
         pass
