@@ -46,7 +46,7 @@ def test_tracks_minimizations():
         starting_size=100.0,
         collector=TestCollector()
     )
-    verifier.falsify(lambda x: sum(x) > 7, [int])
+    verifier.falsify(lambda x: sum(x) > 0, [int])
     assert verifier.collector.simplififications
 
 
