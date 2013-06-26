@@ -1,7 +1,9 @@
 from hypothesis.searchstrategy import SearchStrategies
 from hypothesis.flags import Flags
 from random import random
-from hypothesis.collector import Collector
+from hypothesis.collector import Collector, LoggingCollector
+import logging
+import inspect
 
 
 def assume(condition):
@@ -19,7 +21,9 @@ class Verifier(object):
                  min_satisfying_examples=5,
                  max_size=512,
                  max_failed_runs=10,
-                 collector=None):
+                 collector=None,
+                 logger=None,
+                 ):
         self.search_strategies = search_strategies or SearchStrategies()
         self.min_satisfying_examples = min_satisfying_examples
         self.starting_size = starting_size
@@ -28,13 +32,19 @@ class Verifier(object):
         self.max_size = max_size
         self.max_failed_runs = max_failed_runs
         self.runs_to_explore_flags = runs_to_explore_flags
-        self.collector = collector or Collector()
+        self.logger = logger
+        self.collector = collector or (
+            LoggingCollector(logger) if logger else Collector()
+        )
 
     def falsify(self, hypothesis, *argument_types):
         self.collector.reset()
         search_strategy = (self.search_strategies
                                .specification_for(argument_types))
         flags = None
+        display_hypothesis = hypothesis.__name__
+        if display_hypothesis == '<lambda>':
+            display_hypothesis = inspect.getsource(hypothesis)
 
         def falsifies(args):
             failed_validation = False
@@ -88,8 +98,26 @@ class Verifier(object):
         if not falsifying_examples:
             ef = self.collector.examples_found
             if ef < self.min_satisfying_examples:
+                if self.logger:
+                    self.logger.error(
+                        "Unable to falsify hypothesis %s"
+                        "after %d examples (%d rejected)" % (
+                            display_hypothesis,
+                            self.collector.examples_found,
+                            self.collector.examples_rejected
+                        ))
+
                 raise Unsatisfiable(hypothesis, ef)
             else:
+                if self.logger:
+                    logging.error(
+                        "Unable to find sufficient examples to falsify hypothesis"
+                        "%s. %d accepted. %d rejected" % (
+                            display_hypothesis,
+                            self.collector.examples_found,
+                            self.collector.examples_rejected
+                        ))
+
                 raise Unfalsifiable(hypothesis)
 
         failed_runs = 0
