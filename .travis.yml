@@ -13,5 +13,5 @@ before_script:
   - pip install --use-mirrors pytest pytest-timeout flake8 coverage
 
 script:
-  - py.test -v hypothesis
+  - python -m pytest -v hypothesis
   - flake8 hypothesis 
