@@ -472,11 +472,11 @@ class FixedKeysDictStrategy(SearchStrategy):
         self.strategy_dict = {}
         for k, v in descriptor.items():
             self.strategy_dict[k] = strategies.strategy(v)
-        self.parameter = params.CompositeParameter(**{
-            k: v.parameter
+        self.parameter = params.CompositeParameter(**dict(
+            (k, v.parameter)
             for k, v
             in self.strategy_dict.items()
-        })
+        ))
 
     def child_strategies(self):
         return self.strategy_dict.values()
