@@ -53,10 +53,22 @@ def quicksort(xs):
     return xs
 
 
+def long_and_all_same_sign(xs):
+    if len(xs) <= 10:
+        return False
+    if all(x > 0 for x in xs):
+        return True
+    if all(x < 0 for x in xs):
+        return True
+    if all(x == 0 for x in xs):
+        return True
+    return False
+
+
 def test_finds_interesting_sets():
     examples = [
         x[0]
-        for x in find_interesting_examples(quicksort, ([int],), timeout=1)
+        for x in find_interesting_examples(quicksort, ([int],), timeout=5)
     ]
     assert len(examples) > 4
     assert [] in examples
@@ -66,3 +78,15 @@ def test_finds_interesting_sets():
     assert any(
         len(x) > INSERTION_SORT_SIZE and
         sorted(x, reverse=True) == x for x in examples)
+
+
+def test_can_find_sets_with_deep_structure():
+    examples = [
+        x[0]
+        for x in find_interesting_examples(
+            long_and_all_same_sign, ([float],), timeout=1)
+    ]
+    assert any(len(x) <= 10 for x in examples)
+    assert any(len(x) > 10 for x in examples)
+    assert any(len(x) > 10 and all(y >= 0 for y in x) for x in examples)
+    assert any(len(x) > 10 and all(y <= 0 for y in x) for x in examples)
