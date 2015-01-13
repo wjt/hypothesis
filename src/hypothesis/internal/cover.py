@@ -1,4 +1,4 @@
-from coverage.control import Coverage
+from coverage.control import coverage
 
 
 class Collector(object):
@@ -7,7 +7,7 @@ class Collector(object):
         self.executed_features = set()
 
     def __enter__(self):
-        self.coverage = Coverage(branch=True)
+        self.coverage = coverage(branch=True)
         self.coverage.start()
         self.executed_features = set()
 

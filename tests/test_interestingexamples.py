@@ -1,11 +1,13 @@
 import random as r
 from hypothesis.internal.interestingexamples import find_interesting_examples
+from six.moves import xrange
+from random import Random
 
 
 INSERTION_SORT_SIZE = 4
 
 
-def quicksort(xs):
+def quicksort(random, xs):
     xs = list(xs)
 
     def swap(i, j):
@@ -56,7 +58,7 @@ def quicksort(xs):
 def test_finds_interesting_sets():
     examples = [
         x[0]
-        for x in find_interesting_examples(quicksort, ([int],), timeout=1)
+        for x in find_interesting_examples(quicksort, (Random, [int],), timeout=1)
     ]
     assert len(examples) > 4
     assert [] in examples
