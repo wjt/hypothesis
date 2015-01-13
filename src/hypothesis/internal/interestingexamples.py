@@ -8,7 +8,7 @@ from six.moves import xrange
 
 def find_interesting_examples(
     function, descriptor, timeout=60, search_strategies=None, random=None,
-    max_examples=100,
+    max_examples=1000,
 ):
     search_strategies = search_strategies or ss.StrategyTable()
     strategy = search_strategies.strategy(descriptor)

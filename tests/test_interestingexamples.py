@@ -1,20 +1,21 @@
-import random as r
 from hypothesis.internal.interestingexamples import find_interesting_examples
 from six.moves import xrange
 from random import Random
+import itertools
 
 
 INSERTION_SORT_SIZE = 4
 
 
-def quicksort(random, xs):
+def quicksort(seed, xs):
+    random = Random(seed)
     xs = list(xs)
 
     def swap(i, j):
         xs[i], xs[j] = xs[j], xs[i]
 
     def partition(lo, hi):
-        pivot = r.randint(lo, hi-1)
+        pivot = random.randint(lo, hi-1)
         pivot_value = xs[pivot]
         swap(pivot, hi)
         store = lo
@@ -56,10 +57,13 @@ def quicksort(random, xs):
 
 
 def test_finds_interesting_sets():
-    examples = [
-        x[0]
-        for x in find_interesting_examples(quicksort, (Random, [int],), timeout=1)
-    ]
+    examples = list(itertools.islice((
+        x[1]
+        for x in find_interesting_examples(
+            quicksort, (int, [int],), timeout=10
+        )),
+        5
+    ))
     assert len(examples) > 4
     assert [] in examples
     assert any(len(x) > INSERTION_SORT_SIZE for x in examples)
