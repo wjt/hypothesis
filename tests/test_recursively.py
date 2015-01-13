@@ -213,3 +213,11 @@ def test_cannot_generate_mutable_data_from_an_immutable_strategy(d):
         print(
             nice_string(d),
             verifier.falsify(is_immutable_data, d))
+
+
+@timeout(5)
+@given(descriptor_strategy, verifier=verifier)
+def test_can_produce_what_it_produces(desc):
+    strategy = test_table.strategy(desc)
+    with pytest.raises(Unfalsifiable):
+        verifier.falsify(strategy.could_have_produced, desc)
