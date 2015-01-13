@@ -14,6 +14,7 @@ import signal
 import time
 from functools import wraps
 import hypothesis.settings as hs
+from random import Random
 
 
 class Timeout(BaseException):
@@ -130,30 +131,33 @@ verifier = Verifier(
 )
 
 
-@given(descriptor_strategy, verifier=verifier)
+@given(descriptor_strategy, str, verifier=verifier)
 @timeout(5)
-def test_can_falsify_false_things(desc):
+def test_can_falsify_false_things(desc, seed):
     assume(size(desc) <= MAX_SIZE)
+    verifier.random = Random(seed)
     x = verifier.falsify(lambda x: False, desc)[0]
     strategy = test_table.strategy(desc)
     assert not list(strategy.simplify(x))
 
 
-@given([descriptor_strategy], verifier=verifier)
+@given([descriptor_strategy], str, verifier=verifier)
 @timeout(5)
-def test_can_falsify_false_things_with_many_args(descs):
+def test_can_falsify_false_things_with_many_args(descs, seed):
     assume(len(descs) > 0)
     assume(size(descs) <= MAX_SIZE)
+    verifier.random = Random(seed)
     descs = tuple(descs)
     x = verifier.falsify(lambda *args: False, *descs)
     strategy = test_table.strategy(descs)
     assert not list(strategy.simplify(x))
 
 
-@given(descriptor_strategy, verifier=verifier)
+@given(descriptor_strategy, str, verifier=verifier)
 @timeout(5)
-def test_can_not_falsify_true_things(desc):
+def test_can_not_falsify_true_things(desc, seed):
     assume(size(desc) <= MAX_SIZE)
+    verifier.random = Random(seed)
     with pytest.raises(Unfalsifiable):
         verifier.falsify(lambda x: True, desc)
 
@@ -164,7 +168,7 @@ UNDESIRABLE_STRINGS = re.compile('|'.join(
 
 @timeout(5)
 @given(descriptor_strategy, verifier=verifier)
-def test_does_not_use_nasty_type_reprs_in_nice_string(desc):
+def test_does_not_use_nasty_type_reprs_in_nice_string(desc, seed):
     s = nice_string(desc)
     assert not UNDESIRABLE_STRINGS.findall(s)
 
@@ -205,8 +209,9 @@ def test_basic_tree_matching():
 
 
 @timeout(5)
-@given(descriptor_strategy, verifier=verifier)
-def test_cannot_generate_mutable_data_from_an_immutable_strategy(d):
+@given(descriptor_strategy, int, verifier=verifier)
+def test_cannot_generate_mutable_data_from_an_immutable_strategy(d, seed):
+    verifier.random = Random(seed)
     strategy = test_table.strategy(d)
     assume(strategy.has_immutable_data)
     with pytest.raises(Unfalsifiable):

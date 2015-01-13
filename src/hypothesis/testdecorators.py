@@ -2,6 +2,23 @@ import time
 from hypothesis.verifier import Verifier, Unfalsifiable, UnsatisfiedAssumption
 
 
+def convert_test_function_to_falsification(arguments, test):
+    def to_falsify(xs):
+        testargs, testkwargs = xs
+        try:
+            test(*(arguments + testargs), **testkwargs)
+            return True
+        except UnsatisfiedAssumption as e:
+            raise e
+        except Exception:
+            return False
+    to_falsify.__name__ = test.__name__
+    to_falsify.__qualname__ = getattr(
+        test, '__qualname__', test.__name__)
+
+    return to_falsify
+
+
 def given(*generator_arguments, **kwargs):
     if 'verifier' in kwargs:
         verifier = kwargs.pop('verifier')
@@ -15,19 +32,8 @@ def given(*generator_arguments, **kwargs):
         def wrapped_test(*arguments):
             # The only thing we accept in falsifying the test are exceptions
             # Returning successfully is always a pass.
-            def to_falsify(xs):
-                testargs, testkwargs = xs
-                try:
-                    test(*(arguments + testargs), **testkwargs)
-                    return True
-                except UnsatisfiedAssumption as e:
-                    raise e
-                except Exception:
-                    return False
-
-            to_falsify.__name__ = test.__name__
-            to_falsify.__qualname__ = getattr(
-                test, '__qualname__', test.__name__)
+            to_falsify = convert_test_function_to_falsification(
+                arguments, test)
 
             try:
                 falsifying_example = verifier.falsify(
@@ -41,5 +47,8 @@ def given(*generator_arguments, **kwargs):
             test(*(arguments + falsifying_example[0]), **falsifying_example[1])
         wrapped_test.__name__ = test.__name__
         wrapped_test.__doc__ = test.__doc__
+        wrapped_test.underlying_function = test
+        wrapped_test.hypothesis_descriptor = (generator_arguments, kwargs)
+        wrapped_test.hypothesis_verifier = verifier
         return wrapped_test
     return run_test_with_generator

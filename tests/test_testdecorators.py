@@ -152,7 +152,6 @@ def test_is_the_answer(x):
     assert x == 42
 
 
-@fails
 @given(text_type, text_type)
 def test_text_addition_is_not_commutative(x, y):
     assert x + y == y + x

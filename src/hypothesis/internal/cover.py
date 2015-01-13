@@ -22,4 +22,5 @@ class Collector(object):
                 self.executed_features.add((fileid,) + a)
 
     def file_id(self, filename):
-        return self.known_files.setdefault(len(self.known_files) + 1)
+        return filename
+        return self.known_files.setdefault(filename, len(self.known_files) + 1)

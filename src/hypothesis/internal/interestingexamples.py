@@ -12,7 +12,16 @@ def find_interesting_examples_once(
     pv = strategy.parameter.draw(r)
     example = strategy.produce(r, pv)
     with collector:
-        function(*example)
+        try:
+            function(*example)
+        except Exception:
+            pass
+
+    with collector:
+        try:
+            function(*example)
+        except Exception:
+            pass
     best_examples = {}
     pending = []
     for f in collector.executed_features:
@@ -21,25 +30,30 @@ def find_interesting_examples_once(
             seen_features.add(f)
             pending.append(f)
 
+    seen_locally = t.Tracker()
     for feature in pending:
-        example = best_examples[feature]
-
-        def still_interesting(x):
-            with collector:
-                function(*strategy.copy(x))
-            for f in collector.executed_features:
-                best_examples[f] = x
-            return feature in collector.executed_features
-
-        for simpler in strategy.simplify_such_that(
-            example, still_interesting
-        ):
-            example = simpler
-            if time.time() >= end_time:
-                break
-
-        if tracker.track(example) == 1:
-            yield example
+        current_example = example
+        improved = True
+        i = 0
+        while improved:
+            improved = False
+            for simpler in strategy.simplify(current_example):
+                i += 1
+                if seen_locally.track(simpler) > 1:
+                    continue
+                with collector:
+                    try:
+                        function(*strategy.copy(simpler))
+                    except Exception:
+                        pass
+                if feature in collector.executed_features:
+                    current_example = simpler
+                    # print("%d: %r -> %r" % (i, example, simpler))
+                    improved = True
+                    break
+        if tracker.track(current_example) == 1:
+            print(feature, current_example)
+            yield current_example
 
 
 def find_interesting_examples(
