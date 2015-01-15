@@ -35,6 +35,8 @@ def given(*generator_arguments, **kwargs):
             except Unfalsifiable:
                 return
 
+            print("Falsifying example: %r" % (falsifying_example,))
+
             # We run this one final time so we get good errors
             # Otherwise we would have swallowed all the reports of it actually
             # having gone wrong.

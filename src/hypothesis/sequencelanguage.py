@@ -46,8 +46,6 @@ def intersection(*expressions):
         if isinstance(x, Intersection):
             for r in x.requirements:
                 add(r)
-        elif isinstance(x, Empty):
-            return x
         else:
             add(x)
     if len(parts) == 1:
@@ -164,6 +162,7 @@ class Literal(Expression):
 
     def __init__(self, values):
         self.values = tuple(values)
+        assert self.values
 
     def compute_hash(self):
         return hash(self.values)
@@ -223,7 +222,6 @@ class Concatenation(Expression):
 
 class Intersection(Expression):
     def __init__(self, requirements):
-        assert not any(isinstance(r, Empty) for r in requirements)
         self.requirements = tuple(requirements)
 
     def children(self):
@@ -289,3 +287,152 @@ class Optional(Expression):
 
     def __repr__(self):
         return "optional(%s)" % (repr(self.expression),)
+
+
+class NotAStart(Exception):
+    pass
+
+
+class SequenceCompiler(object):
+    def __init__(self):
+        self.starts_table = {}
+        self.emptiness_table = {}
+        self.satisfiable_table = {}
+        self.simplify_table = {}
+
+    def starting_elements(self, expr):
+        if not expr:
+            return frozenset()
+        try:
+            return self.starts_table[expr]
+        except KeyError:
+            pass
+
+        if isinstance(expr, Literal):
+            result = frozenset({expr.values[0]})
+        elif isinstance(expr, Alternation):
+            result = frozenset()
+            for e in expr.alternatives:
+                result |= self.starting_elements(e)
+        elif isinstance(expr, Concatenation):
+            result = self.starting_elements(expr.subsequences[0])
+        elif isinstance(expr, Optional):
+            result = self.starting_elements(expr.expression)
+        elif isinstance(expr, Repetition):
+            result = self.starting_elements(expr.expression)
+        elif isinstance(expr, Intersection):
+            result = self.starting_elements(expr.requirements[0])
+            for x in expr.requirements[1:]:
+                result &= self.starting_elements(x)
+        else:
+            assert False, expr
+        self.starts_table[expr] = result
+        return result
+
+    def differentiate(self, expr, c):
+        if isinstance(expr, Literal):
+            if c == expr.values[0]:
+                return literal(*expr.values[1:])
+            else:
+                raise NotAStart()
+        elif isinstance(expr, Alternation):
+            return alternation(*[
+                self.differentiate(a, c) for a in expr.alternatives
+                if c in self.starting_elements(a)
+            ])
+        elif isinstance(expr, Concatenation):
+            return self.differentiate(expr.subsequences[0], c) + (
+                concatenation(*expr.subsequences[1:])
+            )
+        elif isinstance(expr, Optional):
+            return self.differentiate(expr.expression, c)
+        elif isinstance(expr, Repetition):
+            return self.differentiate(expr.expression, c) + expr
+        elif isinstance(expr, Intersection):
+            return intersection(*[
+                self.differentiate(r, c)
+                for r in expr.requirements
+            ])
+        else:
+            assert False, expr
+
+    def can_match_empty(self, expr):
+        if not expr:
+            return True
+        try:
+            return self.emptiness_table[expr]
+        except KeyError:
+            pass
+
+        if isinstance(expr, (Optional, Repetition)):
+            result = True
+        elif isinstance(expr, (Concatenation, Intersection)):
+            result = all(
+                self.can_match_empty(c) for c in expr.children()
+            )
+        elif isinstance(expr, Alternation):
+            result = any(
+                self.can_match_empty(c) for c in expr.children()
+            )
+        elif isinstance(expr, Literal):
+            result = False
+        else:
+            assert False, expr
+
+        self.emptiness_table[expr] = result
+        return result
+
+    def is_satisfiable(self, expr):
+        if not expr:
+            return True
+        try:
+            return self.satisfiable_table[expr]
+        except KeyError:
+            pass
+
+        if self.can_match_empty(expr):
+            result = True
+        else:
+            cs = self.starting_elements(expr)
+            result = any(
+                self.is_satisfiable(self.differentiate(expr, c))
+                for c in cs
+            )
+        self.satisfiable_table[expr] = result
+        return result
+
+    def transitions(self, expr):
+        children = [
+            (c, self.differentiate(expr, c))
+            for c in self.starting_elements(expr)
+        ]
+        children = [t for t in children if self.is_satisfiable(t[1])]
+        return children
+
+    def compile(self, expr):
+        expressions = {}
+        elements = []
+
+        sequence_stack = [expr]
+        while sequence_stack:
+            head = sequence_stack.pop()
+            if head in expressions:
+                continue
+            else:
+                assert len(expressions) == len(elements)
+                expressions[head] = len(expressions)
+                elements.append(head)
+                for _, e in self.transitions(head):
+                    if e not in elements:
+                        sequence_stack.append(e)
+        assert expressions
+        assert len(elements) == len(expressions)
+
+        terminal_states = [
+            self.can_match_empty(e) for e in expressions
+        ]
+        transitions = [
+            [(c, expressions[e2]) for c, e2 in self.transitions(e)]
+            for e in expressions
+        ]
+        return terminal_states, transitions
