@@ -12,6 +12,6 @@ script:
   - PYTHONPATH=src python -u -m coverage run --branch --include 'src/hypothesis/*' --omit 'src/hypothesis/internal/compat.py' $(which py.test) -v tests
   - coverage report -m --fail-under=100
   - pip install flake8 restructuredtext_lint pygments
-  - flake8 src tests
+  - flake8 src tests --exclude=compat.py
   - rst-lint README.rst
   - ./installer-test.sh
