@@ -461,3 +461,9 @@ def test_randoms_with_same_seed_and_state_are_equal():
     assert s != t
     t.random()
     assert s == t
+
+
+def test_fixed_bounded_float_strategy_converts_its_args():
+    st = strat.FixedBoundedFloatStrategy(0, 1)
+    for t in st.simplify(0.5):
+        assert st.could_have_produced(t)
