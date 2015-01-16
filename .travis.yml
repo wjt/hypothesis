@@ -6,10 +6,10 @@ python:
   - 3.4
 
 before_script:
-  - pip install six pytest pytest-timeout flake8 coverage restructuredtext_lint pygments
+  - pip install pytest pytest-timeout coverage flake8 restructuredtext_lint pygments
 
 script:
-  - PYTHONPATH=src python -u -m coverage run --branch --include 'src/hypothesis/*' $(which py.test) -v tests
+  - PYTHONPATH=src python -u -m coverage run --branch --include 'src/hypothesis/*' --exclude 'src/hypothesis/internal/compat.py' $(which py.test) -v tests
   - coverage report -m --fail-under=100
   - flake8 src tests
   - rst-lint README.rst
