@@ -1,3 +1,7 @@
+from hypothesis.internal.utils.distributions import biased_coin
+from hypothesis.internal.utils.decorators import memoized
+
+
 def concatenation(*expressions):
     parts = []
     for x in expressions:
@@ -293,6 +297,48 @@ class NotAStart(Exception):
     pass
 
 
+class DFA(object):
+    def __init__(self, transitions, terminal_states):
+        self.transitions = tuple(map(tuple, transitions))
+        self.terminal_states = frozenset(terminal_states)
+
+    def __repr__(self):
+        return "DFA(transitions=%r, terminal_states=%r)" % (
+            self.transitions, self.terminal_states,
+        )
+
+    def generate(self, random, stopping_chance):
+        current_state = 0
+        while True:
+            if (
+                current_state in self.terminal_states and (
+                    not self.transitions[current_state] or
+                    biased_coin(random, stopping_chance)
+                )
+            ):
+                return
+            transitions = self.transitions[current_state]
+            assert transitions, (current_state, self)
+            c, next_state = random.choice(transitions)
+            current_state = next_state
+            yield c
+
+    def produce(self, random, stopping_chance):
+        return list(self.generate(random, stopping_chance))
+
+    def matches(self, value):
+        current_state = 0
+        for v in value:
+            transitions = self.transitions[current_state]
+            for c, next_state in transitions:
+                if v == c:
+                    current_state = next_state
+                    break
+            else:
+                return False
+        return current_state in self.terminal_states
+
+
 class SequenceCompiler(object):
     def __init__(self):
         self.starts_table = {}
@@ -428,11 +474,15 @@ class SequenceCompiler(object):
         assert expressions
         assert len(elements) == len(expressions)
 
-        terminal_states = [
-            self.can_match_empty(e) for e in expressions
-        ]
-        transitions = [
-            [(c, expressions[e2]) for c, e2 in self.transitions(e)]
-            for e in expressions
-        ]
-        return terminal_states, transitions
+        return DFA(
+            terminal_states=frozenset(
+                expressions[e]
+                for e in expressions
+                if self.can_match_empty(e)
+            ),
+            transitions=tuple(
+                [(c, expressions[e2]) for c, e2 in self.transitions(e)]
+                for e in expressions
+            )
+
+        )

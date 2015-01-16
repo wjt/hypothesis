@@ -5,6 +5,8 @@ from hypothesis.strategytable import StrategyTable
 import hypothesis.params as params
 from hypothesis.internal.utils.distributions import geometric
 from six.moves import xrange
+from random import Random
+from hypothesis.descriptors import floats_in_range
 
 
 class ExpressionStrategy(SearchStrategy):
@@ -25,6 +27,9 @@ class ExpressionStrategy(SearchStrategy):
             ]),
             child_parameter=child_strategy.parameter,
         )
+
+    def could_have_produced(self, value):
+        return isinstance(value, sequence.Expression)
 
     def simplify(self, value):
         for c in value.children():
@@ -160,15 +165,56 @@ def test_every_satisfiable_expression_matches_empty_or_has_characters(x):
     assert sequence.SequenceCompiler().starting_elements(x)
 
 
-def test_empty_can_match_empty():
-    assert sequence.SequenceCompiler().can_match_empty(sequence.empty())
+@given([int])
+def test_differentiating_a_literal_produces_its_elements_in_sequence(xs):
+    compiler = sequence.SequenceCompiler()
+    expr = sequence.literal(*xs)
+    for x in xs:
+        assert compiler.starting_elements(expr) == frozenset({x})
+        expr = compiler.differentiate(expr, x)
+    assert expr == sequence.empty()
 
 
-@given(IntExpression)
-def test_can_compile_expression(x):
-    satisfiable = sequence.SequenceCompiler().is_satisfiable(x)
-    terminal, transitions = sequence.SequenceCompiler().compile(x)
-    assert len(transitions) == len(terminal)
-    assert any(terminal) == satisfiable
-    if satisfiable:
-        assert all(term or tran for term, tran in zip(terminal, transitions))
+@given([int])
+def test_a_compiled_literal_has_one_terminal_state(xs):
+    compiler = sequence.SequenceCompiler()
+    expr = sequence.literal(*xs)
+    dfa = compiler.compile(expr)
+    assert len(dfa.terminal_states) == 1
+
+
+@given([int], Random, floats_in_range(0, 1))
+def test_generating_from_a_literal_just_produces_that_literal(xs, r, t):
+    compiled = sequence.SequenceCompiler().compile(sequence.literal(*xs))
+    xs2 = compiled.produce(r, t)
+    assert xs == xs2
+
+
+@given([int])
+def test_a_non_empty_literal_has_precisely_one_transition(xs):
+    assume(xs)
+    expr = sequence.literal(*xs)
+    compiled = sequence.SequenceCompiler().compile(expr)
+    assert len(compiled.transitions[0]) == 1
+
+
+@given([int])
+def test_all_literals_are_satisfiable(xs):
+    print(xs)
+    expr = sequence.literal(*xs)
+    compiler = sequence.SequenceCompiler()
+    assert compiler.is_satisfiable(expr)
+
+
+@given(IntExpression, Random, floats_in_range(0.2, 1))
+def test_generated_data_matches(exp, random, t):
+    compiled = sequence.SequenceCompiler().compile(exp)
+    x = compiled.produce(random, t)
+    assert compiled.matches(x)
+
+#   @given(IntExpression, IntExpression, Random, floats_in_range(0.2, 1))
+#   def test_generation_from_alternation_matches_one_of_the_two(x, y, r, t):
+#       cxy = sequence.SequenceCompiler().compile(x | y)
+#       cx = sequence.SequenceCompiler().compile(x)
+#       cy = sequence.SequenceCompiler().compile(y)
+#       some_sequence = cxy.generate(r, t)
