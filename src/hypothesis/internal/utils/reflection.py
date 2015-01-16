@@ -5,7 +5,6 @@ really unreasonable lengths to produce pretty output.
 
 import inspect
 from hypothesis.internal.compat import xrange, ARG_NAME_ATTRIBUTE
-import hypothesis.internal.compat as compat
 import types
 import ast
 import re
