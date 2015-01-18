@@ -736,3 +736,8 @@ class SampledFromStrategy(SearchStrategy):
 
     def could_have_produced(self, value):
         return value in self.elements
+
+    def simplify(self, v):
+        i = self.elements.index(v)
+        for j in xrange(i):
+            yield self.elements[j]

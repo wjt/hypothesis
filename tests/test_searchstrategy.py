@@ -505,3 +505,8 @@ def test_list_distinguishes_on_elements():
 def test_set_distinguishes_on_elements():
     s = strategy({int})
     assert not s.could_have_produced({(1, 2)})
+
+
+def test_can_shrink_towards_start_of_sampled_from():
+    s = strategy(descriptors.sampled_from(list(xrange(10))))
+    assert minimize(s, 8) == 0
