@@ -233,7 +233,7 @@ def test_minimizes_strings_to_zeroes():
 def test_can_find_short_strings():
     assert falsify(lambda x: len(x) > 0, text_type)[0] == ''
     assert len(falsify(lambda x: len(x) <= 1, text_type)[0]) == 2
-    assert falsify(lambda x: len(x) < 10, [text_type])[0] == [''] * 10
+    assert falsify(lambda x: len(x) < 5, [text_type])[0] == [''] * 5
 
 
 def test_stops_loop_pretty_quickly():
